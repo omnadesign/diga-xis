@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Cabine de Fotos</title>
+<style>
+:root{--bg:#a8553a;--booth:#f4efe6;--ink:#1b1b1b;--curtain:#2f6b3a;--card:#fffaf0;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#6e3523;--booth:#e8e2d6;--card:#f1ebdd}}
+:root[data-theme="dark"]{--bg:#6e3523;--booth:#e8e2d6;--card:#f1ebdd}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:"Helvetica Neue",Arial,sans-serif;min-height:100vh;display:flex;flex-direction:column;align-items:center;padding:24px 16px}
+.wrap{display:flex;flex-wrap:wrap;gap:32px;justify-content:center;align-items:flex-start;max-width:960px;width:100%}
+.booth{width:320px;max-width:100%}
+.sign{background:var(--booth);border:6px solid var(--booth);outline:2px solid var(--ink);margin:0 auto;width:70%;text-align:center;font-weight:900;font-size:28px;letter-spacing:2px;padding:10px 0}
+.post{width:70%;height:18px;margin:0 auto;display:flex;justify-content:space-between}
+.post i{width:8px;background:var(--booth)}
+.body{background:var(--booth);border-radius:6px;padding:14px;position:relative;height:420px;display:flex;gap:10px}
+.side{width:22%;background:#e9d5cc;border-radius:4px}
+.window{flex:1;background:#222;position:relative;overflow:hidden;border-radius:2px}
+video{width:100%;height:100%;object-fit:cover;transform:scaleX(-1);filter:grayscale(1) contrast(1.1);display:none}
+.curtain{position:absolute;inset:0;background:repeating-linear-gradient(90deg,var(--curtain) 0 18px,#276030 18px 24px);transition:transform .8s ease;transform-origin:top;display:flex;align-items:flex-end;justify-content:center;padding-bottom:20px;color:#fff;font-size:13px;text-align:center}
+.open .curtain{transform:translateY(-82%)}
+.count{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:110px;font-weight:900;color:#fff;text-shadow:0 2px 12px #000;pointer-events:none}
+.flash{position:absolute;inset:0;background:#fff;opacity:0;pointer-events:none}
+.flash.go{animation:fl .35s}
+@keyframes fl{0%{opacity:1}100%{opacity:0}}
+.ctrl{margin-top:16px;display:flex;gap:10px;flex-direction:column}
+button,.btn{font:inherit;font-weight:700;background:var(--ink);color:#fff;border:0;padding:14px;border-radius:6px;cursor:pointer;text-align:center}
+button.alt{background:var(--card);color:var(--ink)}
+button:disabled{opacity:.5;cursor:default}
+.msg{color:#fff;font-size:14px;min-height:20px;text-align:center}
+.stripbox{background:var(--card);padding:12px;border-radius:4px;width:200px;box-shadow:0 8px 24px rgba(0,0,0,.35)}
+.stripbox canvas{width:100%;display:block}
+.empty{width:200px;min-height:340px;border:2px dashed rgba(255,255,255,.5);border-radius:4px;color:#fff;display:flex;align-items:center;text-align:center;padding:16px;font-size:14px}
+#fileIn{display:none}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="booth" id="booth">
+    <div class="sign">PHOTOS</div>
+    <div class="post"><i></i><i></i></div>
+    <div class="body">
+      <div class="side"></div>
+      <div class="window">
+        <video id="vid" playsinline muted></video>
+        <div class="curtain"><span>Entre, feche a cortina<br>e sorria</span></div>
+        <div class="count" id="count"></div>
+        <div class="flash" id="flash"></div>
+      </div>
+    </div>
+    <div class="ctrl">
+      <button id="go">Entrar na cabine</button>
+      <button class="alt" id="up">Ou enviar 4 fotos da galeria</button>
+      <input type="file" id="fileIn" accept="image/*" multiple>
+      <div class="msg" id="msg"></div>
+    </div>
+  </div>
+  <div>
+    <div class="empty" id="empty">Sua tirinha vai aparecer aqui.</div>
+    <div class="stripbox" id="stripbox" style="display:none"><canvas id="strip"></canvas></div>
+    <div class="ctrl" id="after" style="display:none;width:200px">
+      <select id="lay" style="font:inherit;padding:12px;border-radius:6px;border:0"><option value="8">A4: 8 tirinhas pequenas</option><option value="2">A4: 2 tirinhas grandes</option></select>
+      <button id="pdf">Baixar PDF A4 (impressão)</button>
+      <button class="alt" id="dl">Baixar PNG</button>
+      <button class="alt" id="again">Tirar de novo</button>
+    </div>
+  </div>
+</div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script>
+const $=id=>document.getElementById(id);
+const vid=$('vid'),msg=$('msg'),count=$('count'),flash=$('flash');
+let stream=null,busy=false;
+const W=540,H=405,PAD=28,FOOT=70;
+
+const wait=ms=>new Promise(r=>setTimeout(r,ms));
+
+function grab(src,sw,sh){
+  const c=document.createElement('canvas');c.width=W;c.height=H;
+  const x=c.getContext('2d');
+  const r=Math.max(W/sw,H/sh),dw=sw*r,dh=sh*r;
+  x.drawImage(src,(W-dw)/2,(H-dh)/2,dw,dh);
+  const d=x.getImageData(0,0,W,H),p=d.data;
+  for(let i=0;i<p.length;i+=4){
+    let g=0.3*p[i]+0.59*p[i+1]+0.11*p[i+2];
+    g=Math.max(0,Math.min(255,(g-128)*1.12+128));
+    p[i]=p[i+1]=p[i+2]=g;
+  }
+  x.putImageData(d,0,0);
+  return c;
+}
+function grabVideo(){
+  const c=document.createElement('canvas');c.width=vid.videoWidth;c.height=vid.videoHeight;
+  const x=c.getContext('2d');x.translate(c.width,0);x.scale(-1,1);x.drawImage(vid,0,0);
+  return grab(c,c.width,c.height);
+}
+
+function buildStrip(shots){
+  const cv=$('strip');
+  cv.width=W+PAD*2;cv.height=PAD+shots.length*(H+PAD)+FOOT-PAD;
+  const x=cv.getContext('2d');
+  x.fillStyle='#fffaf0';x.fillRect(0,0,cv.width,cv.height);
+  shots.forEach((s,i)=>x.drawImage(s,PAD,PAD+i*(H+PAD)));
+  x.fillStyle='#1b1b1b';x.font='bold 26px Helvetica, Arial, sans-serif';x.textAlign='center';
+  const d=new Date().toLocaleDateString('pt-BR');
+  x.fillText('PHOTOS · '+d,cv.width/2,cv.height-26);
+  $('empty').style.display='none';$('stripbox').style.display='block';$('after').style.display='flex';
+}
+
+async function startCam(){
+  try{
+    stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:'user',width:{ideal:1280},height:{ideal:960}},audio:false});
+    vid.srcObject=stream;await vid.play();vid.style.display='block';return true;
+  }catch(e){msg.textContent='Não consegui acessar a câmera. Use a opção de enviar fotos da galeria.';return false;}
+}
+function stopCam(){if(stream){stream.getTracks().forEach(t=>t.stop());stream=null}vid.style.display='none'}
+
+async function session(){
+  if(busy)return;busy=true;$('go').disabled=true;msg.textContent='';
+  if(!(await startCam())){busy=false;$('go').disabled=false;return}
+  $('booth').classList.add('open');
+  await wait(1200);
+  const shots=[];
+  for(let n=1;n<=4;n++){
+    msg.textContent='Foto '+n+' de 4';
+    for(let c=5;c>=1;c--){count.textContent=c;await wait(1000)}
+    count.textContent='';
+    flash.classList.remove('go');void flash.offsetWidth;flash.classList.add('go');
+    shots.push(grabVideo());
+    await wait(500);
+  }
+  stopCam();$('booth').classList.remove('open');
+  msg.textContent='Pronto!';
+  buildStrip(shots);
+  busy=false;$('go').disabled=false;$('go').textContent='Entrar de novo';
+}
+
+$('go').onclick=session;
+$('again').onclick=session;
+$('up').onclick=()=>$('fileIn').click();
+$('fileIn').onchange=e=>{
+  const files=[...e.target.files].slice(0,4);
+  if(files.length<4){msg.textContent='Escolha 4 fotos.';return}
+  Promise.all(files.map(f=>new Promise(res=>{
+    const im=new Image();im.onload=()=>res(grab(im,im.naturalWidth,im.naturalHeight));im.src=URL.createObjectURL(f);
+  }))).then(buildStrip);
+  msg.textContent='';
+};
+$('pdf').onclick=()=>{
+  if(!window.jspdf){msg.textContent='Não consegui carregar o gerador de PDF.';return}
+  const doc=new window.jspdf.jsPDF({unit:'mm',format:'a4'});
+  const cv=$('strip'),img=cv.toDataURL('image/jpeg',0.95),ratio=cv.height/cv.width;
+  const big=$('lay').value==='2';
+  const w=big?80:45,h=w*ratio,cols=big?2:4,rows=big?1:2,gx=big?10:4,gy=4;
+  const x0=(210-(cols*w+(cols-1)*gx))/2,y0=(297-(rows*h+(rows-1)*gy))/2;
+  doc.setDrawColor(170);doc.setLineWidth(0.1);
+  for(let r=0;r<rows;r++)for(let c=0;c<cols;c++){
+    const x=x0+c*(w+gx),y=y0+r*(h+gy);
+    doc.addImage(img,'JPEG',x,y,w,h);doc.rect(x,y,w,h);
+  }
+  doc.save('tirinhas-a4.pdf');
+};
+$('dl').onclick=()=>{
+  const a=document.createElement('a');a.download='tirinha-cabine.png';a.href=$('strip').toDataURL('image/png');
+  document.body.appendChild(a);a.click();a.remove();
+};
+</script>
+</body>
+</html>
