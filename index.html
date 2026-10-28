@@ -136,7 +136,7 @@ function buildStrip(shots){
   cv.width=500;
   cv.height=Math.round(cv.width*size/4.5);
   const x=cv.getContext('2d');
-  x.fillStyle='#fff';x.fillRect(0,0,cv.width,cv.height);
+  x.fillStyle='#000';x.fillRect(0,0,cv.width,cv.height);
 
   const innerW=cv.width-PAD*2;
   const innerH=cv.height-PAD*2;
