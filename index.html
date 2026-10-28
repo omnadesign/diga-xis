@@ -177,7 +177,7 @@ async function session(){
   const shots=[];
   for(let n=1;n<=4;n++){
     msg.textContent='Foto '+n+' de 4';
-    for(let c=5;c>=1;c--){count.textContent=c;await wait(1000)}
+    for(let c=3;c>=1;c--){count.textContent=c;await wait(1000)}
     count.textContent='';
     flash.classList.remove('go');void flash.offsetWidth;flash.classList.add('go');
     shots.push(grabVideo());
