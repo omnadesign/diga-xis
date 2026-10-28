@@ -138,21 +138,22 @@ function buildStrip(shots){
   const x=cv.getContext('2d');
   x.fillStyle='#000';x.fillRect(0,0,cv.width,cv.height);
 
-  const innerW=cv.width-PAD*2;
+  const innerW=Math.round((cv.width-PAD*2)*0.62);
+  const frameX=Math.round((cv.width-innerW)/2);
   const innerH=cv.height-PAD*2;
   const frameH=(innerH-GAP*(shots.length-1))/shots.length;
 
   shots.forEach((shot,i)=>{
     const y=PAD+i*(frameH+GAP);
-    x.fillStyle='#111';
-    x.fillRect(PAD-BORDER,y-BORDER,innerW+2*BORDER,frameH+2*BORDER);
+    x.fillStyle='#000';
+    x.fillRect(frameX-BORDER,y-BORDER,innerW+2*BORDER,frameH+2*BORDER);
     const sw=shot.width,sh=shot.height;
     const scale=Math.max(innerW/sw,frameH/sh);
     const dw=sw*scale,dh=sh*scale;
     const sx=(dw-innerW)/2,sy=(dh-frameH)/2;
     x.save();
-    x.beginPath();x.rect(PAD,y,innerW,frameH);x.clip();
-    x.drawImage(shot,PAD-sx,y-sy,dw,dh);
+    x.beginPath();x.rect(frameX,y,innerW,frameH);x.clip();
+    x.drawImage(shot,frameX-sx,y-sy,dw,dh);
     x.restore();
   });
 
