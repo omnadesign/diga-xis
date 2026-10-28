@@ -75,8 +75,8 @@ button:disabled{opacity:.5;cursor:default}
       </div>
     </div>
     <div class="ctrl" id="after" style="display:none;width:200px">
-      <select id="lay" style="font:inherit;padding:12px;border-radius:6px;border:0"><option value="12">5 × 12 cm</option><option value="14" selected>5 × 14 cm</option><option value="16">5 × 16 cm</option></select>
-      <button id="pdf">Baixar PDF no tamanho escolhido</button>
+      <select id="lay" style="font:inherit;padding:12px;border-radius:6px;border:0"><option value="12">4,5 × 12 cm</option><option value="14" selected>4,5 × 14 cm</option><option value="16">4,5 × 16 cm</option></select>
+      <button id="pdf">Baixar 3 tirinhas em PDF A5</button>
       <button class="alt" id="dl">Baixar PNG</button>
       <button class="alt" id="again">Tirar de novo</button>
     </div>
@@ -134,7 +134,7 @@ function buildStrip(shots){
   const cv=$('strip');
   const size=Number($('lay').value)||14;
   cv.width=500;
-  cv.height=Math.round(cv.width*size/5);
+  cv.height=Math.round(cv.width*size/4.5);
   const x=cv.getContext('2d');
   x.fillStyle='#fff';x.fillRect(0,0,cv.width,cv.height);
 
@@ -203,17 +203,30 @@ $('fileIn').onchange=e=>{
 $('pdf').onclick=()=>{
   if(!window.jspdf){msg.textContent='Não consegui carregar o gerador de PDF.';return}
   const cv=$('strip');
-  const img=cv.toDataURL('image/jpeg',0.95);
-  const w=50;
-  const h=Number($('lay').value)||14;
+  const img=cv.toDataURL('image/jpeg',0.98);
+  const stripW=45;
+  const stripH=(Number($('lay').value)||14)*10;
+  const pageW=148;
+  const pageH=210;
+  const marginX=4;
+  const gap=2;
+  const totalW=stripW*3+gap*2;
+  const x0=(pageW-totalW)/2;
+  const y=(pageH-stripH)/2;
   const doc=new window.jspdf.jsPDF({
     orientation:'portrait',
     unit:'mm',
-    format:[w,h*10],
+    format:'a5',
     compress:true
   });
-  doc.addImage(img,'JPEG',0,0,w,h*10);
-  doc.save('diga-xis-tirinha-5x'+h+'.pdf');
+  for(let i=0;i<3;i++){
+    const x=x0+i*(stripW+gap);
+    doc.addImage(img,'JPEG',x,y,stripW,stripH);
+    doc.setDrawColor(0,0,0);
+    doc.setLineWidth(0.25);
+    doc.rect(x,y,stripW,stripH);
+  }
+  doc.save('diga-xis-3-tirinhas-4-5x'+(stripH/10)+'cm-a5.pdf');
 };
 $('lay').onchange=()=>{if(currentShots.length===4)buildStrip(currentShots)};
 $('dl').onclick=()=>{
