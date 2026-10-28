@@ -87,7 +87,7 @@ button:disabled{opacity:.5;cursor:default}
 const $=id=>document.getElementById(id);
 const vid=$('vid'),msg=$('msg'),count=$('count'),flash=$('flash');
 let stream=null,busy=false;
-const W=500, PAD=12, GAP=10, BORDER=2;
+const W=500, H=364, PAD=12, GAP=10, BORDER=2;
 let currentShots=[];
 
 const wait=ms=>new Promise(r=>setTimeout(r,ms));
